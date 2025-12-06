@@ -41,7 +41,7 @@ neigh_df = city_df.copy()
 if selected_city != "Any":
     neigh_df = neigh_df[neigh_df["City"] == selected_city]
 
-neighbourhoods = sorted(neigh_df["Neighbourhood Cleansed"].dropna().unique())
+neighbourhoods = sorted(neigh_df["Neighbourhood"].dropna().unique())
 selected_neighbourhood = st.sidebar.selectbox("Neighbourhood", ["Any"] + list(neighbourhoods))
 
 
