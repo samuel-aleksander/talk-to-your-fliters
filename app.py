@@ -1,6 +1,23 @@
 import streamlit as st
 import pandas as pd
+import json
+import os
+from typing import Dict, Any, Optional
 from facet_schema import FACET_SCHEMA
+
+# LLM imports - try Anthropic Claude first, fallback to rule-based if not available
+# Install with: pip install anthropic
+# 
+# To use LLM extraction, set your Anthropic API key in one of these ways:
+# 1. Streamlit secrets: Create .streamlit/secrets.toml with: ANTHROPIC_API_KEY = "your-key-here"
+# 2. Environment variable: export ANTHROPIC_API_KEY="your-key-here"
+# 
+# If no API key is found, the app will automatically fall back to rule-based extraction.
+try:
+    from anthropic import Anthropic  # type: ignore
+    LLM_AVAILABLE = True
+except ImportError:
+    LLM_AVAILABLE = False
 
 st.set_page_config(page_title="Airbnb Faceted Search", layout="wide")
 
@@ -347,11 +364,148 @@ for col, must_have in amenity_checks.items():
             filtered = filtered[filtered[col] == True]
 
 
-# temporary stub to extract facets from query
-def extract_facets_from_query(query: str) -> dict:
+def _build_llm_prompt(query: str, available_locations: Dict[str, list]) -> str:
+    """Build a prompt for the LLM to extract facets from a natural language query."""
     
-    q = query.lower()
-    facets = {
+    # Get all allowed values from FACET_SCHEMA
+    property_types = FACET_SCHEMA["property_type"]["allowed_values"]
+    room_types = FACET_SCHEMA["room_type"]["allowed_values"]
+    
+    # Get amenity labels
+    amenity_labels = []
+    for category, amenities in FACET_SCHEMA["amenities"]["categories"].items():
+        amenity_labels.extend(amenities.keys())
+    
+    prompt = f"""You are a facet extraction assistant for an Airbnb search system. Your job is to interpret a natural language query and extract structured facet values.
+
+IMPORTANT RULES:
+1. Extract ONLY the facets mentioned in the query. If something is not mentioned, return null or empty list.
+2. Use EXACTLY the allowed values listed below. Do not invent new values.
+3. For location, use the EXACT city/state/country names from the available lists.
+4. Return valid JSON only, no additional text.
+
+AVAILABLE LOCATIONS:
+Countries: {', '.join(available_locations.get('countries', []))}
+States: {', '.join(available_locations.get('states', []))}
+Cities: {', '.join(available_locations.get('cities', []))}
+
+ALLOWED PROPERTY TYPES (use exact names):
+{', '.join(property_types)}
+
+ALLOWED ROOM TYPES (use exact names):
+{', '.join(room_types)}
+
+AVAILABLE AMENITIES (use exact labels):
+{', '.join(amenity_labels)}
+
+NUMERIC CONSTRAINTS:
+- price_max: maximum price per night (positive number)
+- guests_min: minimum number of guests (positive integer)
+- bedrooms_min: minimum number of bedrooms (positive integer)
+- rating_min: minimum rating in stars 0-5 (float, e.g., 4.0, 4.5)
+
+OUTPUT FORMAT (JSON):
+{{
+    "country": "exact country name or null",
+    "state": "exact state name or null",
+    "city": "exact city name or null",
+    "neighbourhood": "exact neighbourhood name or null",
+    "property_types": ["list of allowed property types or empty list"],
+    "room_types": ["list of allowed room types or empty list"],
+    "price_max": number or null,
+    "guests_min": integer or null,
+    "bedrooms_min": integer or null,
+    "rating_min": float or null,
+    "amenities": ["list of amenity labels or empty list"]
+}}
+
+USER QUERY: "{query}"
+
+Extract the facets and return ONLY valid JSON:"""
+
+    return prompt
+
+
+def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -> Optional[Dict[str, Any]]:
+    """Extract facets using Claude API. Returns None if LLM is unavailable or fails."""
+    
+    if not LLM_AVAILABLE:
+        return None
+    
+    # Get API key from Streamlit secrets or environment variable
+    api_key = None
+    try:
+        api_key = st.secrets.get("ANTHROPIC_API_KEY")
+    except:
+        pass
+    
+    if not api_key:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+    
+    if not api_key:
+        return None
+    
+    try:
+        client = Anthropic(api_key=api_key)
+        
+        system_prompt = "You are a precise JSON extraction assistant. Return only valid JSON, no additional text."
+        user_prompt = _build_llm_prompt(query, available_locations)
+        
+        message = client.messages.create(
+            model="claude-3-5-haiku-20241022",  # Cheapest Claude model
+            max_tokens=1024,
+            temperature=0.1,  # Low temperature for consistent extraction
+            system=system_prompt,
+            messages=[
+                {"role": "user", "content": user_prompt}
+            ]
+        )
+        
+        # Parse JSON response
+        content = message.content[0].text
+        raw_facets = json.loads(content)
+        
+        # Return raw facets without validation for now
+        return raw_facets
+        
+    except Exception as e:
+        # Log error but don't crash - fall back to rule-based
+        # Only show warning for non-API-key errors to avoid noise
+        error_msg = str(e).lower()
+        if "api key" not in error_msg and "authentication" not in error_msg:
+            st.warning(f"LLM extraction failed: {str(e)}. Falling back to rule-based extraction.")
+        return None
+
+
+def extract_facets_from_query(query: str, df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Extract facet values from a natural language query using LLM.
+    
+    This function uses Claude to interpret the query and extract facet values.
+    If the LLM is unavailable or fails, returns an empty facets dict.
+    
+    Args:
+        query: Natural language search query
+        df: DataFrame to get available location values for the prompt
+    
+    Returns:
+        Dictionary with facet keys and extracted values
+    """
+    # Get available locations from dataframe for the prompt
+    available_locations = {
+        "countries": sorted(df["Country"].dropna().unique().tolist()),
+        "states": sorted(df["State"].dropna().unique().tolist()),
+        "cities": sorted(df["City"].dropna().unique().tolist())
+    }
+    
+    # Try LLM extraction
+    llm_facets = _extract_facets_with_llm(query, available_locations)
+    
+    if llm_facets is not None:
+        return llm_facets
+    
+    # Return empty facets dict if LLM fails
+    return {
         "country": None,
         "state": None,
         "city": None,
@@ -365,32 +519,8 @@ def extract_facets_from_query(query: str) -> dict:
         "amenities": []
     }
 
-    # Location filters
-    if "los angeles" in q:
-        facets["city"] = "Los Angeles"
-    if "san francisco" in q:
-        facets["city"] = "San Francisco"
-   
-    # Price
-    if "cheap" in q or "under 150" in q:
-        facets["price_max"] = 150
-
-    # Guests/Accommodates
-
-    # Bedrooms
-    if "2 bedroom" in q or "two bedroom" in q:
-        facets["bedrooms_min"] = 2
-
-    # Amenities
-    if "wifi" in q:
-        facets["amenities"].append("Wifi")
-    if "pool" in q:
-        facets["amenities"].append("Pool")
-
-    return facets
-
 if apply_query and user_query:
-    extracted = extract_facets_from_query(user_query)
+    extracted = extract_facets_from_query(user_query, df)
 
     # country -> country_filter
     if extracted.get("country") is not None:
