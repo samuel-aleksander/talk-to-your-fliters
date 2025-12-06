@@ -24,7 +24,7 @@ apply_query = st.button("Interpret query")
 
 # Country filter
 countries = sorted(df["Country"].dropna().unique())
-selected_country = st.sidebar.selectbox("Country", ["Any"] + countries)
+selected_country = st.sidebar.selectbox("Country", ["Any"] + countries, key="country_filter")
 
 # State filter
 if selected_country != "Any":
@@ -33,7 +33,7 @@ if selected_country != "Any":
 else:
     states = sorted(df["State"].dropna().unique())
 
-selected_state = st.sidebar.selectbox("State", ["Any"] + list(states))
+selected_state = st.sidebar.selectbox("State", ["Any"] + list(states), key="state_filter")
 
 # City filter
 city_df = df.copy()
@@ -43,7 +43,7 @@ if selected_state != "Any":
     city_df = city_df[city_df["State"] == selected_state]
 
 cities = sorted(city_df["City"].dropna().unique())
-selected_city = st.sidebar.selectbox("City", ["Any"] + list(cities))
+selected_city = st.sidebar.selectbox("City", ["Any"] + list(cities), key="city_filter")
 
 # Neighborhood filter
 neigh_df = city_df.copy()
@@ -51,7 +51,7 @@ if selected_city != "Any":
     neigh_df = neigh_df[neigh_df["City"] == selected_city]
 
 neighbourhoods = sorted(neigh_df["Neighbourhood"].dropna().unique())
-selected_neighbourhood = st.sidebar.selectbox("Neighbourhood", ["Any"] + list(neighbourhoods))
+selected_neighbourhood = st.sidebar.selectbox("Neighbourhood", ["Any"] + list(neighbourhoods), key="neighbourhood_filter")
 
 # PROPERTY TYPE / ROOM TYPE FILTERS
 
@@ -61,14 +61,16 @@ prop_types = sorted(df["Property Type Normalized"].dropna().unique())
 selected_prop_types = st.sidebar.multiselect(
     "Property type",
     options=prop_types,
-    default=prop_types
+    default=prop_types,
+    key="prop_type_filter"
 )
 
 room_types = sorted(df["Room Type"].dropna().unique())
 selected_room_types = st.sidebar.multiselect(
     "Room type",
     options=room_types,
-    default=room_types
+    default=room_types,
+    key="room_type_filter"
 )
 
 # NUMERIC FILTERS
@@ -80,7 +82,8 @@ price_range = st.sidebar.slider(
     "Price per night",
     min_value=int(min_price),
     max_value=int(max_price),
-    value=(int(min_price), int(max_price))
+    value=(int(min_price), int(max_price)),
+    key="price_filter"
 )
 
 min_guests, max_guests = int(df["Accommodates"].min()), int(df["Accommodates"].max())
@@ -88,7 +91,8 @@ guests_min = st.sidebar.slider(
     "Minimum guests",
     min_value=min_guests,
     max_value=max_guests,
-    value=min_guests
+    value=min_guests,
+    key="guests_filter"
 )
 
 min_beds, max_beds = int(df["Bedrooms"].min()), int(df["Bedrooms"].max())
@@ -96,7 +100,8 @@ bedrooms_min = st.sidebar.slider(
     "Minimum bedrooms",
     min_value=min_beds,
     max_value=max_beds,
-    value=min_beds
+    value=min_beds,
+    key="bedrooms_filter"
 )
 
 # rating_stars should be 0–5 (or close)
@@ -106,7 +111,8 @@ rating_min = st.sidebar.slider(
     min_value=0.0,
     max_value=5.0,
     value=0.0,
-    step=0.5
+    step=0.5,
+    key="rating_filter"
 )
 
 # AMENITIES FILTERS
@@ -117,25 +123,25 @@ st.sidebar.subheader("Amenities")
 amenity_checks = {}
 
 with st.sidebar.expander("Basics", expanded=False):
-    amenity_checks["amenity_wifi"] = st.checkbox("Wifi")
-    amenity_checks["amenity_TV"] = st.checkbox("TV")
-    amenity_checks["amenity_kitchen"] = st.checkbox("Kitchen")
-    amenity_checks["amenity_heating"] = st.checkbox("Heating")
-    amenity_checks["amenity_air_conditioning"] = st.checkbox("Air conditioning")
+    amenity_checks["amenity_wifi"] = st.checkbox("Wifi", key="amenity_wifi_filter")
+    amenity_checks["amenity_TV"] = st.checkbox("TV", key="amenity_TV_filter")
+    amenity_checks["amenity_kitchen"] = st.checkbox("Kitchen", key="amenity_kitchen_filter")
+    amenity_checks["amenity_heating"] = st.checkbox("Heating", key="amenity_heating_filter")
+    amenity_checks["amenity_air_conditioning"] = st.checkbox("Air conditioning", key="amenity_air_conditioning_filter")
 
 with st.sidebar.expander("Laundry", expanded=False):
-    amenity_checks["amenity_washer"] = st.checkbox("Washer")
-    amenity_checks["amenity_dryer"] = st.checkbox("Dryer")
+    amenity_checks["amenity_washer"] = st.checkbox("Washer", key="amenity_washer_filter")
+    amenity_checks["amenity_dryer"] = st.checkbox("Dryer", key="amenity_dryer_filter")
 
 with st.sidebar.expander("Parking", expanded=False):
-    amenity_checks["amenity_free_parking"] = st.checkbox("Free parking")
+    amenity_checks["amenity_free_parking"] = st.checkbox("Free parking", key="amenity_free_parking_filter")
 
 with st.sidebar.expander("Leisure", expanded=False):
-    amenity_checks["amenity_pool"] = st.checkbox("Pool")
-    amenity_checks["amenity_hot_tub"] = st.checkbox("Hot tub")
+    amenity_checks["amenity_pool"] = st.checkbox("Pool", key="amenity_pool_filter")
+    amenity_checks["amenity_hot_tub"] = st.checkbox("Hot tub", key="amenity_hot_tub_filter")
 
 with st.sidebar.expander("Pets", expanded=False):
-    amenity_checks["amenity_pet_friendly"] = st.checkbox("Pet-friendly")
+    amenity_checks["amenity_pet_friendly"] = st.checkbox("Pet-friendly", key="amenity_pet_friendly_filter" )
 
 # APPLY FILTERS
 
