@@ -430,6 +430,7 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
     """Extract facets using Claude API. Returns None if LLM is unavailable or fails."""
     
     if not LLM_AVAILABLE:
+        st.write("❌ LLM not available")
         return None
     
     # Get API key from Streamlit secrets or environment variable
@@ -443,7 +444,10 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
         api_key = os.getenv("ANTHROPIC_API_KEY")
     
     if not api_key:
+        st.write("❌ No API key found")
         return None
+    
+    st.write("✅ Making API call...")
     
     try:
         client = Anthropic(api_key=api_key)
@@ -463,17 +467,15 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
         
         # Parse JSON response
         content = message.content[0].text
+        st.write("**LLM Response:**", content)
         raw_facets = json.loads(content)
+        st.write("✅ API call successful")
         
         # Return raw facets without validation for now
         return raw_facets
         
     except Exception as e:
-        # Log error but don't crash - fall back to rule-based
-        # Only show warning for non-API-key errors to avoid noise
-        error_msg = str(e).lower()
-        if "api key" not in error_msg and "authentication" not in error_msg:
-            st.warning(f"LLM extraction failed: {str(e)}. Falling back to rule-based extraction.")
+        st.write(f"❌ Error: {str(e)}")
         return None
 
 
@@ -521,7 +523,10 @@ def extract_facets_from_query(query: str, df: pd.DataFrame) -> Dict[str, Any]:
 
 if apply_query and user_query:
     extracted = extract_facets_from_query(user_query, df)
-
+    
+    # Simple debug output
+    st.write("**Extracted:**", extracted)
+    
     # country -> country_filter
     if extracted.get("country") is not None:
         # Check if the country exists in the available countries
