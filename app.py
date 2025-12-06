@@ -12,6 +12,13 @@ df = load_data()
 
 st.title("Airbnb Faceted Search Prototype")
 
+st.markdown("### What are you looking for?")
+user_query = st.text_input(
+    "Natural language query",
+    placeholder="e.g. cheap 2 bedroom in Los Angeles with pool and wifi",
+)
+
+apply_query = st.button("Interpret query")
 
 # LOCATION FILTERS
 
