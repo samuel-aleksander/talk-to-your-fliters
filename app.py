@@ -12,9 +12,6 @@ df = load_data()
 
 st.title("Airbnb Faceted Search Prototype")
 
-# ------------------------------
-# Location facets (initial UI)
-# ------------------------------
 
 # Country filter
 countries = sorted(df["Country"].dropna().unique())
@@ -47,9 +44,6 @@ if selected_city != "Any":
 neighbourhoods = sorted(neigh_df["Neighbourhood Cleansed"].dropna().unique())
 selected_neighbourhood = st.sidebar.selectbox("Neighbourhood", ["Any"] + list(neighbourhoods))
 
-# --------------------------------
-# Basic display for now
-# --------------------------------
 
 st.subheader("Data Preview")
 st.dataframe(df.head(50))
