@@ -65,6 +65,9 @@ df_clean["Property Type Normalized"] = df_clean["Property Type"]
 mask_rare = ~df_clean["Property Type"].isin(MAIN_TYPES)
 df_clean.loc[mask_rare, "Property Type Normalized"] = "Unique stay"
 
+# Keep only states with at least 5 listings
+df_clean = df_clean[df_clean["State"].map(df_clean["State"].value_counts()) >= 5]
+
 
 print(list(df_clean.columns))
 print(df_clean["Property Type Normalized"].value_counts())
