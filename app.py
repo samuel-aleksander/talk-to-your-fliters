@@ -118,24 +118,24 @@ neigh_df = city_df.copy()
 if selected_city != "Any":
     neigh_df = neigh_df[neigh_df["City"] == selected_city]
 
-neighbourhoods = sorted(neigh_df["Neighbourhood"].dropna().unique())
-neighbourhood_options = ["Any"] + list(neighbourhoods)
+neighborhoods = sorted(neigh_df["Neighborhood"].dropna().unique())
+neighborhood_options = ["Any"] + list(neighborhoods)
 
-# Check for pending neighbourhood update from query extraction
-if "_pending_neighbourhood_update" in st.session_state:
-    pending_neighbourhood = st.session_state["_pending_neighbourhood_update"]
-    if pending_neighbourhood in neighbourhood_options:
-        st.session_state["neighbourhood_filter"] = pending_neighbourhood
-    del st.session_state["_pending_neighbourhood_update"]
+# Check for pending neighborhood update from query extraction
+if "_pending_neighborhood_update" in st.session_state:
+    pending_neighborhood = st.session_state["_pending_neighborhood_update"]
+    if pending_neighborhood in neighborhood_options:
+        st.session_state["neighborhood_filter"] = pending_neighborhood
+    del st.session_state["_pending_neighborhood_update"]
 
 # Determine the index for the selectbox based on session state or default to 0
-neighbourhood_index = 0
-if "neighbourhood_filter" in st.session_state:
-    neighbourhood_value = st.session_state["neighbourhood_filter"]
-    if neighbourhood_value in neighbourhood_options:
-        neighbourhood_index = neighbourhood_options.index(neighbourhood_value)
+neighborhood_index = 0
+if "neighborhood_filter" in st.session_state:
+    neighborhood_value = st.session_state["neighborhood_filter"]
+    if neighborhood_value in neighborhood_options:
+        neighborhood_index = neighborhood_options.index(neighborhood_value)
 
-selected_neighbourhood = st.sidebar.selectbox("Neighbourhood", neighbourhood_options, index=neighbourhood_index, key="neighbourhood_filter")
+selected_neighborhood = st.sidebar.selectbox("Neighborhood", neighborhood_options, index=neighborhood_index, key="neighborhood_filter")
 
 # PROPERTY TYPE / ROOM TYPE FILTERS
 
@@ -339,8 +339,8 @@ if selected_state != "Any":
     filtered = filtered[filtered["State"] == selected_state]
 if selected_city != "Any":
     filtered = filtered[filtered["City"] == selected_city]
-if selected_neighbourhood != "Any":
-    filtered = filtered[filtered["Neighbourhood"] == selected_neighbourhood]
+if selected_neighborhood != "Any":
+    filtered = filtered[filtered["Neighborhood"] == selected_neighborhood]
 
 # property / room type
 filtered = filtered[filtered["Property Type Normalized"].isin(selected_prop_types)]
@@ -409,7 +409,7 @@ OUTPUT FORMAT (JSON):
     "country": "exact country name or null",
     "state": "exact state name or null",
     "city": "exact city name or null",
-    "neighbourhood": "exact neighbourhood name or null",
+    "neighborhood": "exact neighborhood name or null",
     "property_types": ["list of allowed property types or empty list"],
     "room_types": ["list of allowed room types or empty list"],
     "price_max": number or null,
@@ -511,7 +511,7 @@ def extract_facets_from_query(query: str, df: pd.DataFrame) -> Dict[str, Any]:
         "country": None,
         "state": None,
         "city": None,
-        "neighbourhood": None,
+        "neighborhood": None,
         "property_types": [],
         "room_types": [],
         "price_max": None,
@@ -556,9 +556,9 @@ if apply_query and user_query:
         if extracted["city"] in available_cities:
             st.session_state["_pending_city_update"] = extracted["city"]
 
-    # neighbourhood -> neighbourhood_filter
-    if extracted.get("neighbourhood") is not None:
-        # Check if the neighbourhood exists in the available neighbourhoods
+    # neighborhood -> neighborhood_filter
+    if extracted.get("neighborhood") is not None:
+        # Check if the neighborhood exists in the available neighborhoods
         neigh_df_check = df.copy()
         if selected_country != "Any":
             neigh_df_check = neigh_df_check[neigh_df_check["Country"] == selected_country]
@@ -566,9 +566,9 @@ if apply_query and user_query:
             neigh_df_check = neigh_df_check[neigh_df_check["State"] == selected_state]
         if selected_city != "Any":
             neigh_df_check = neigh_df_check[neigh_df_check["City"] == selected_city]
-        available_neighbourhoods = sorted(neigh_df_check["Neighbourhood"].dropna().unique())
-        if extracted["neighbourhood"] in available_neighbourhoods:
-            st.session_state["_pending_neighbourhood_update"] = extracted["neighbourhood"]
+        available_neighborhoods = sorted(neigh_df_check["Neighborhood"].dropna().unique())
+        if extracted["neighborhood"] in available_neighborhoods:
+            st.session_state["_pending_neighborhood_update"] = extracted["neighborhood"]
 
     # property_types -> prop_type_filter
     property_types_list = extracted.get("property_types", [])
@@ -622,7 +622,7 @@ if apply_query and user_query:
 st.subheader(f"Results ({len(filtered)} listings)")
 
 cols_to_show = [
-    "ID", "Listing Url", "Neighbourhood", "City", "State",
+    "ID", "Listing Url", "Neighborhood", "City", "State",
     "Property Type Normalized", "Property Type",
     "Room Type", "Accommodates", "Bedrooms", "Price", "rating_stars"
 ]
