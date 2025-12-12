@@ -71,6 +71,9 @@ df_clean = df_clean[df_clean["State"].map(df_clean["State"].value_counts()) >= 5
 # Remove neighborhoods that are zip codes
 df_clean = df_clean[~df_clean["Neighborhood"].str.match(r"^\d{5}$", na=False)]
 
+# Keep only United States listings
+df_clean = df_clean[df_clean["Country"] == "United States"]
+
 print(list(df_clean.columns))
 print(df_clean["Property Type Normalized"].value_counts())
 # print(df_clean["Features"].value_counts())
