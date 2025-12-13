@@ -28,15 +28,90 @@ def load_data():
 
 df = load_data()
 
+# Clear query input if flag is set (from manual filter changes in previous run)
+# This must happen before any widgets are created
+if st.session_state.get("_clear_query_input", False):
+    if "user_query_input" in st.session_state:
+        st.session_state["user_query_input"] = ""
+    del st.session_state["_clear_query_input"]
+
 st.title("Airbnb Faceted Search Prototype")
 
 st.markdown("### Tell us what you are looking for")
+
+# Initialize query input in session state if not exists
+if "user_query_input" not in st.session_state:
+    st.session_state["user_query_input"] = ""
+
 user_query = st.text_input(
     "We will automatically apply filters based on your description",
     placeholder="e.g. cheap 2 bedroom in Los Angeles with pool and wifi",
+    key="user_query_input"
 )
 
 apply_query = st.button("Apply filters")
+
+# Function to format and display applied filters
+def format_applied_filters(extracted: Dict[str, Any]) -> str:
+    """Format extracted filters into a human-readable string."""
+    filters = []
+    
+    # Location filters
+    if extracted.get("country"):
+        country_val = extracted["country"]
+        if isinstance(country_val, list):
+            filters.append(f"Country: {', '.join(country_val)}")
+        else:
+            filters.append(f"Country: {country_val}")
+    
+    if extracted.get("state"):
+        state_val = extracted["state"]
+        if isinstance(state_val, list):
+            filters.append(f"State: {', '.join(state_val)}")
+        else:
+            filters.append(f"State: {state_val}")
+    
+    if extracted.get("city"):
+        city_val = extracted["city"]
+        if isinstance(city_val, list):
+            filters.append(f"City: {', '.join(city_val)}")
+        else:
+            filters.append(f"City: {city_val}")
+    
+    if extracted.get("neighborhood"):
+        filters.append(f"Neighborhood: {extracted['neighborhood']}")
+    
+    # Property and room types
+    if extracted.get("property_types") and len(extracted["property_types"]) > 0:
+        filters.append(f"Property Type: {', '.join(extracted['property_types'])}")
+    
+    if extracted.get("room_types") and len(extracted["room_types"]) > 0:
+        filters.append(f"Room Type: {', '.join(extracted['room_types'])}")
+    
+    # Numeric filters
+    if extracted.get("price_max") is not None:
+        filters.append(f"Max Price: ${extracted['price_max']:.0f}")
+    
+    if extracted.get("guests_min") is not None:
+        filters.append(f"Min Guests: {extracted['guests_min']}")
+    
+    if extracted.get("bedrooms_min") is not None:
+        filters.append(f"Min Bedrooms: {extracted['bedrooms_min']}")
+    
+    if extracted.get("rating_min") is not None:
+        filters.append(f"Min Rating: {extracted['rating_min']:.1f} stars")
+    
+    # Amenities
+    if extracted.get("amenities") and len(extracted["amenities"]) > 0:
+        filters.append(f"Amenities: {', '.join(extracted['amenities'])}")
+    
+    return " | ".join(filters) if filters else ""
+
+# Display applied filters if they exist from a previous query
+if "last_extracted_filters" in st.session_state and st.session_state["last_extracted_filters"]:
+    applied_filters_text = format_applied_filters(st.session_state["last_extracted_filters"])
+    if applied_filters_text:
+        st.info(f"**Applied Filters:** {applied_filters_text}")
 
 # LOCATION FILTERS - Hierarchical multi-select
 
@@ -419,6 +494,102 @@ with st.sidebar.expander("Leisure", expanded=False):
 with st.sidebar.expander("Pets", expanded=False):
     amenity_checks["amenity_pet_friendly"] = st.checkbox("Pet-friendly", key="amenity_pet_friendly_filter" )
 
+# Detect manual filter changes and clear query context if user manually adjusts filters
+# Initialize previous filter states if not exists
+if "_prev_filter_states" not in st.session_state:
+    st.session_state["_prev_filter_states"] = {
+        "country_filter": st.session_state.get("country_filter", []).copy(),
+        "state_filter": st.session_state.get("state_filter", []).copy(),
+        "city_filter": st.session_state.get("city_filter", []).copy(),
+        "neighborhood_filter": st.session_state.get("neighborhood_filter", []).copy(),
+        "prop_type_filter": st.session_state.get("prop_type_filter", []).copy(),
+        "room_type_filter": st.session_state.get("room_type_filter", []).copy(),
+        "price_filter": st.session_state.get("price_filter", (int(min_price), int(max_price))),
+        "guests_filter": st.session_state.get("guests_filter", min_guests),
+        "bedrooms_filter": st.session_state.get("bedrooms_filter", min_beds),
+        "rating_filter": st.session_state.get("rating_filter", 0.0),
+        "amenity_wifi_filter": st.session_state.get("amenity_wifi_filter", False),
+        "amenity_TV_filter": st.session_state.get("amenity_TV_filter", False),
+        "amenity_kitchen_filter": st.session_state.get("amenity_kitchen_filter", False),
+        "amenity_heating_filter": st.session_state.get("amenity_heating_filter", False),
+        "amenity_air_conditioning_filter": st.session_state.get("amenity_air_conditioning_filter", False),
+        "amenity_washer_filter": st.session_state.get("amenity_washer_filter", False),
+        "amenity_dryer_filter": st.session_state.get("amenity_dryer_filter", False),
+        "amenity_free_parking_filter": st.session_state.get("amenity_free_parking_filter", False),
+        "amenity_pool_filter": st.session_state.get("amenity_pool_filter", False),
+        "amenity_hot_tub_filter": st.session_state.get("amenity_hot_tub_filter", False),
+        "amenity_pet_friendly_filter": st.session_state.get("amenity_pet_friendly_filter", False),
+    }
+
+# Check if any filter changed manually (not from pending updates)
+# Only check if there are no pending updates and we're not applying filters from a query
+# Also skip if we're already in the process of clearing (flag is set)
+has_pending_updates = any(key.startswith("_pending_") for key in st.session_state.keys())
+applying_from_query = st.session_state.get("_applying_filters_from_query", False)
+clearing_query = st.session_state.get("_clear_query_input", False)
+
+# Clear the applying flag after pending updates are processed
+if applying_from_query and not has_pending_updates:
+    del st.session_state["_applying_filters_from_query"]
+
+if not has_pending_updates and not applying_from_query and not clearing_query:
+    current_states = {
+        "country_filter": st.session_state.get("country_filter", []).copy(),
+        "state_filter": st.session_state.get("state_filter", []).copy(),
+        "city_filter": st.session_state.get("city_filter", []).copy(),
+        "neighborhood_filter": st.session_state.get("neighborhood_filter", []).copy(),
+        "prop_type_filter": st.session_state.get("prop_type_filter", []).copy(),
+        "room_type_filter": st.session_state.get("room_type_filter", []).copy(),
+        "price_filter": st.session_state.get("price_filter", (int(min_price), int(max_price))),
+        "guests_filter": st.session_state.get("guests_filter", min_guests),
+        "bedrooms_filter": st.session_state.get("bedrooms_filter", min_beds),
+        "rating_filter": st.session_state.get("rating_filter", 0.0),
+        "amenity_wifi_filter": st.session_state.get("amenity_wifi_filter", False),
+        "amenity_TV_filter": st.session_state.get("amenity_TV_filter", False),
+        "amenity_kitchen_filter": st.session_state.get("amenity_kitchen_filter", False),
+        "amenity_heating_filter": st.session_state.get("amenity_heating_filter", False),
+        "amenity_air_conditioning_filter": st.session_state.get("amenity_air_conditioning_filter", False),
+        "amenity_washer_filter": st.session_state.get("amenity_washer_filter", False),
+        "amenity_dryer_filter": st.session_state.get("amenity_dryer_filter", False),
+        "amenity_free_parking_filter": st.session_state.get("amenity_free_parking_filter", False),
+        "amenity_pool_filter": st.session_state.get("amenity_pool_filter", False),
+        "amenity_hot_tub_filter": st.session_state.get("amenity_hot_tub_filter", False),
+        "amenity_pet_friendly_filter": st.session_state.get("amenity_pet_friendly_filter", False),
+    }
+    
+    prev_states = st.session_state["_prev_filter_states"]
+    
+    # Compare lists by converting to sets for comparison
+    def lists_equal(a, b):
+        if isinstance(a, list) and isinstance(b, list):
+            return set(a) == set(b)
+        return a == b
+    
+    # Check if any filter changed
+    filter_changed = False
+    for key in current_states:
+        if key in prev_states:
+            if isinstance(current_states[key], list) and isinstance(prev_states[key], list):
+                if set(current_states[key]) != set(prev_states[key]):
+                    filter_changed = True
+                    break
+            elif current_states[key] != prev_states[key]:
+                filter_changed = True
+                break
+    
+    # If filters changed manually, clear query context
+    if filter_changed and "last_extracted_filters" in st.session_state:
+        del st.session_state["last_extracted_filters"]
+        # Update previous states first to prevent re-detection on rerun
+        st.session_state["_prev_filter_states"] = current_states.copy()
+        # Set flag to clear query input (will be checked before widget creation in next run)
+        st.session_state["_clear_query_input"] = True
+        # Trigger rerun to clear the input
+        st.rerun()
+    else:
+        # Update previous states for next comparison
+        st.session_state["_prev_filter_states"] = current_states.copy()
+
 # APPLY FILTERS
 
 filtered = df.copy()
@@ -697,8 +868,13 @@ def extract_facets_from_query(query: str, df: pd.DataFrame) -> Dict[str, Any]:
 if apply_query and user_query:
     # Set flag to replace location filters (not append) when applying a new query
     st.session_state["_replace_location_filters"] = True
+    # Set flag to indicate filters are being applied from a query (prevents clearing query context)
+    st.session_state["_applying_filters_from_query"] = True
     
     extracted = extract_facets_from_query(user_query, df)
+    
+    # Store extracted filters for display
+    st.session_state["last_extracted_filters"] = extracted
     
     # Simple debug output
     st.write("**Extracted:**", extracted)
