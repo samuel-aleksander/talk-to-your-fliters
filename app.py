@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import os
 from typing import Dict, Any, Optional
+from datetime import datetime
 from facet_schema import FACET_SCHEMA
 
 # LLM imports - try Anthropic Claude first, fallback to rule-based if not available
@@ -428,6 +429,54 @@ Extract the facets and return ONLY valid JSON:"""
     return prompt
 
 
+def log_llm_query(query: str, llm_response: str, extracted_facets: Dict[str, Any] = None):
+    """Log LLM queries and responses to a CSV file with each filter as a separate column."""
+    # Create logs directory if it doesn't exist
+    log_dir = "logs"
+    os.makedirs(log_dir, exist_ok=True)
+    
+    log_file = os.path.join(log_dir, "llm_query_logs.csv")
+    timestamp = datetime.now().isoformat()
+    
+    # Prepare log entry with each filter as a separate column
+    log_entry = {
+        "timestamp": timestamp,
+        "user_query": query,
+        "llm_response": llm_response,
+        # Location filters
+        "extracted_country": extracted_facets.get("country") if extracted_facets else None,
+        "extracted_state": extracted_facets.get("state") if extracted_facets else None,
+        "extracted_city": extracted_facets.get("city") if extracted_facets else None,
+        "extracted_neighborhood": extracted_facets.get("neighborhood") if extracted_facets else None,
+        # Property/Room type filters (convert lists to comma-separated strings)
+        "extracted_property_types": ", ".join(extracted_facets.get("property_types", [])) if extracted_facets and extracted_facets.get("property_types") else None,
+        "extracted_room_types": ", ".join(extracted_facets.get("room_types", [])) if extracted_facets and extracted_facets.get("room_types") else None,
+        # Numeric filters
+        "extracted_price_max": extracted_facets.get("price_max") if extracted_facets else None,
+        "extracted_guests_min": extracted_facets.get("guests_min") if extracted_facets else None,
+        "extracted_bedrooms_min": extracted_facets.get("bedrooms_min") if extracted_facets else None,
+        "extracted_rating_min": extracted_facets.get("rating_min") if extracted_facets else None,
+        # Amenities (convert list to comma-separated string)
+        "extracted_amenities": ", ".join(extracted_facets.get("amenities", [])) if extracted_facets and extracted_facets.get("amenities") else None,
+    }
+    
+    # Append to CSV file
+    try:
+        # Check if file exists
+        if os.path.exists(log_file):
+            # Append to existing file
+            log_df = pd.read_csv(log_file)
+            log_df = pd.concat([log_df, pd.DataFrame([log_entry])], ignore_index=True)
+        else:
+            # Create new file
+            log_df = pd.DataFrame([log_entry])
+        
+        log_df.to_csv(log_file, index=False)
+    except Exception as e:
+        # Silently fail if logging fails - don't break the app
+        pass
+
+
 def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -> Optional[Dict[str, Any]]:
     """Extract facets using Claude API. Returns None if LLM is unavailable or fails."""
     
@@ -472,6 +521,9 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
         st.write("**LLM Response:**", content)
         raw_facets = json.loads(content)
         st.write("✅ API call successful")
+        
+        # Log the query and response
+        log_llm_query(query, content, raw_facets)
         
         # Return raw facets without validation for now
         return raw_facets
