@@ -6,14 +6,13 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 from facet_schema import FACET_SCHEMA
 
-# LLM imports - try Anthropic Claude first, fallback to rule-based if not available
-# Install with: pip install anthropic
-# 
+ 
 # To use LLM extraction, set your Anthropic API key in one of these ways:
 # 1. Streamlit secrets: Create .streamlit/secrets.toml with: ANTHROPIC_API_KEY = "your-key-here"
 # 2. Environment variable: export ANTHROPIC_API_KEY="your-key-here"
 # 
-# If no API key is found, the app will automatically fall back to rule-based extraction.
+# If the anthropic library is not installed or the API key is not found,
+# the app will return empty facets (no filters will be applied from the query).
 try:
     from anthropic import Anthropic  # type: ignore
     LLM_AVAILABLE = True
