@@ -218,6 +218,10 @@ st.sidebar.markdown("---")
 
 prop_types = sorted(df["Property Type Normalized"].dropna().unique())
 
+# Initialize as empty list for multi-select
+if "prop_type_filter" not in st.session_state:
+    st.session_state["prop_type_filter"] = []
+
 # Check for pending property type update from query extraction
 if "_pending_prop_type_update" in st.session_state:
     pending_prop_types = st.session_state["_pending_prop_type_update"]
@@ -227,20 +231,18 @@ if "_pending_prop_type_update" in st.session_state:
         st.session_state["prop_type_filter"] = valid_prop_types
     del st.session_state["_pending_prop_type_update"]
 
-# Get initial property types from session state or use defaults
-if "prop_type_filter" in st.session_state:
-    prop_type_value = st.session_state["prop_type_filter"]
-else:
-    prop_type_value = prop_types
-
 selected_prop_types = st.sidebar.multiselect(
     "Property type",
     options=prop_types,
-    default=prop_type_value,
-    key="prop_type_filter"
+    key="prop_type_filter",
+    placeholder="Any"
 )
 
 room_types = sorted(df["Room Type"].dropna().unique())
+
+# Initialize as empty list for multi-select
+if "room_type_filter" not in st.session_state:
+    st.session_state["room_type_filter"] = []
 
 # Check for pending room type update from query extraction
 if "_pending_room_type_update" in st.session_state:
@@ -251,17 +253,11 @@ if "_pending_room_type_update" in st.session_state:
         st.session_state["room_type_filter"] = valid_room_types
     del st.session_state["_pending_room_type_update"]
 
-# Get initial room types from session state or use defaults
-if "room_type_filter" in st.session_state:
-    room_type_value = st.session_state["room_type_filter"]
-else:
-    room_type_value = room_types
-
 selected_room_types = st.sidebar.multiselect(
     "Room type",
     options=room_types,
-    default=room_type_value,
-    key="room_type_filter"
+    key="room_type_filter",
+    placeholder="Any"
 )
 
 # NUMERIC FILTERS
@@ -418,8 +414,10 @@ if st.session_state.get("neighborhood_filter"):
     filtered = filtered[filtered["Neighborhood"].isin(st.session_state["neighborhood_filter"])]
 
 # property / room type
-filtered = filtered[filtered["Property Type Normalized"].isin(selected_prop_types)]
-filtered = filtered[filtered["Room Type"].isin(selected_room_types)]
+if selected_prop_types:
+    filtered = filtered[filtered["Property Type Normalized"].isin(selected_prop_types)]
+if selected_room_types:
+    filtered = filtered[filtered["Room Type"].isin(selected_room_types)]
 
 # numeric
 filtered = filtered[
