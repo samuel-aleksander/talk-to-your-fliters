@@ -38,6 +38,11 @@ st.title("Airbnb Faceted Search Prototype")
 
 st.markdown("### Tell us what you are looking for")
 
+st.markdown(
+    "Describe your needs in plain language. The system will interpret your description and apply the corresponding filters."
+    " You can always review, change, or remove these filters using the sidebar on the left."
+)
+
 # Initialize query input in session state if not exists
 if "user_query_input" not in st.session_state:
     st.session_state["user_query_input"] = ""
@@ -381,7 +386,7 @@ else:
     price_value = (int(min_price), int(max_price))
 
 price_range = st.sidebar.slider(
-    "Price per night",
+    "Price per night (USD)",
     min_value=int(min_price),
     max_value=int(max_price),
     value=price_value,
