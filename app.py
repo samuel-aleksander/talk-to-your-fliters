@@ -310,6 +310,7 @@ selected_neighborhood = st.sidebar.multiselect(
 # PROPERTY TYPE / ROOM TYPE FILTERS
 
 st.sidebar.markdown("---")
+st.sidebar.subheader("Listing Type")
 
 prop_types = sorted(df["Property Type Normalized"].dropna().unique())
 
@@ -358,6 +359,8 @@ selected_room_types = st.sidebar.multiselect(
 # NUMERIC FILTERS
 
 st.sidebar.markdown("---")
+st.sidebar.subheader("Requirements")
+
 
 min_price, max_price = float(df["Price"].min()), float(df["Price"].max())
 
