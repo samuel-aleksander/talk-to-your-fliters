@@ -107,7 +107,6 @@ countries = sorted(df["Country"].dropna().unique())
 selected_country = st.sidebar.multiselect(
     "Countries",
     options=countries,
-    default=st.session_state["country_filter"],
     key="country_filter"
 )
 # Don't modify session_state here - widget handles it automatically
