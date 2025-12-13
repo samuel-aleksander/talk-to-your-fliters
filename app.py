@@ -37,105 +37,106 @@ user_query = st.text_input(
 
 apply_query = st.button("Interpret query")
 
-# LOCATION FILTERS
+# LOCATION FILTERS - Hierarchical multi-select
 
-# Country filter
-countries = sorted(df["Country"].dropna().unique())
-country_options = ["Any"] + countries
-
-# Check for pending country update from query extraction
-if "_pending_country_update" in st.session_state:
-    pending_country = st.session_state["_pending_country_update"]
-    if pending_country in country_options:
-        st.session_state["country_filter"] = pending_country
-    del st.session_state["_pending_country_update"]
-
-# Determine the index for the selectbox based on session state or default to 0
-country_index = 0
-if "country_filter" in st.session_state:
-    country_value = st.session_state["country_filter"]
-    if country_value in country_options:
-        country_index = country_options.index(country_value)
-
-selected_country = st.sidebar.selectbox("Country", country_options, index=country_index, key="country_filter")
-
-# State filter
-if selected_country != "Any":
-    state_df = df[df["Country"] == selected_country]
-    states = sorted(state_df["State"].dropna().unique())
-else:
-    states = sorted(df["State"].dropna().unique())
-
-state_options = ["Any"] + list(states)
-
-# Check for pending state update from query extraction
-if "_pending_state_update" in st.session_state:
-    pending_state = st.session_state["_pending_state_update"]
-    if pending_state in state_options:
-        st.session_state["state_filter"] = pending_state
-    del st.session_state["_pending_state_update"]
-
-# Determine the index for the selectbox based on session state or default to 0
-state_index = 0
-if "state_filter" in st.session_state:
-    state_value = st.session_state["state_filter"]
-    if state_value in state_options:
-        state_index = state_options.index(state_value)
-
-selected_state = st.sidebar.selectbox("State", state_options, index=state_index, key="state_filter")
-
-# City filter
-city_df = df.copy()
-if selected_country != "Any":
-    city_df = city_df[city_df["Country"] == selected_country]
-if selected_state != "Any":
-    city_df = city_df[city_df["State"] == selected_state]
-
-cities = sorted(city_df["City"].dropna().unique())
-city_options = ["Any"] + list(cities)
-
-# Check for pending city update from query extraction
-if "_pending_city_update" in st.session_state:
-    pending_city = st.session_state["_pending_city_update"]
-    if pending_city in city_options:
-        # Set the city filter value before creating the widget
-        st.session_state["city_filter"] = pending_city
-    # Clear the pending update
-    del st.session_state["_pending_city_update"]
-
-# Determine the index for the selectbox based on session state or default to 0
-city_index = 0
-if "city_filter" in st.session_state:
-    city_value = st.session_state["city_filter"]
-    if city_value in city_options:
-        city_index = city_options.index(city_value)
-    # If the stored value is not in current options, just use index 0 (don't modify session_state)
-
-selected_city = st.sidebar.selectbox("City", city_options, index=city_index, key="city_filter")
-
-# Neighborhood filter
-neigh_df = city_df.copy()
-if selected_city != "Any":
-    neigh_df = neigh_df[neigh_df["City"] == selected_city]
-
-neighborhoods = sorted(neigh_df["Neighborhood"].dropna().unique())
-neighborhood_options = ["Any"] + list(neighborhoods)
-
-# Check for pending neighborhood update from query extraction
-if "_pending_neighborhood_update" in st.session_state:
-    pending_neighborhood = st.session_state["_pending_neighborhood_update"]
-    if pending_neighborhood in neighborhood_options:
-        st.session_state["neighborhood_filter"] = pending_neighborhood
-    del st.session_state["_pending_neighborhood_update"]
-
-# Determine the index for the selectbox based on session state or default to 0
-neighborhood_index = 0
-if "neighborhood_filter" in st.session_state:
-    neighborhood_value = st.session_state["neighborhood_filter"]
-    if neighborhood_value in neighborhood_options:
-        neighborhood_index = neighborhood_options.index(neighborhood_value)
-
-selected_neighborhood = st.sidebar.selectbox("Neighborhood", neighborhood_options, index=neighborhood_index, key="neighborhood_filter")
+with st.sidebar.expander("Location", expanded=True):
+    # Initialize as lists for multi-select
+    if "country_filter" not in st.session_state:
+        st.session_state["country_filter"] = []
+    if "state_filter" not in st.session_state:
+        st.session_state["state_filter"] = []
+    if "city_filter" not in st.session_state:
+        st.session_state["city_filter"] = []
+    if "neighborhood_filter" not in st.session_state:
+        st.session_state["neighborhood_filter"] = []
+    
+    # Handle pending updates BEFORE creating widgets
+    if "_pending_country_update" in st.session_state:
+        pending_country = st.session_state["_pending_country_update"]
+        if pending_country not in st.session_state["country_filter"]:
+            st.session_state["country_filter"].append(pending_country)
+        del st.session_state["_pending_country_update"]
+    
+    if "_pending_state_update" in st.session_state:
+        pending_state = st.session_state["_pending_state_update"]
+        if pending_state not in st.session_state["state_filter"]:
+            st.session_state["state_filter"].append(pending_state)
+        del st.session_state["_pending_state_update"]
+    
+    if "_pending_city_update" in st.session_state:
+        pending_city = st.session_state["_pending_city_update"]
+        if pending_city not in st.session_state["city_filter"]:
+            st.session_state["city_filter"].append(pending_city)
+        del st.session_state["_pending_city_update"]
+    
+    if "_pending_neighborhood_update" in st.session_state:
+        pending_neighborhood = st.session_state["_pending_neighborhood_update"]
+        if pending_neighborhood not in st.session_state["neighborhood_filter"]:
+            st.session_state["neighborhood_filter"].append(pending_neighborhood)
+        del st.session_state["_pending_neighborhood_update"]
+    
+    # Country filter - multi-select
+    countries = sorted(df["Country"].dropna().unique())
+    selected_country = st.multiselect(
+        "Countries",
+        options=countries,
+        default=st.session_state["country_filter"],
+        key="country_filter"
+    )
+    # Don't modify session_state here - widget handles it automatically
+    
+    # State filter - filtered by selected countries
+    if selected_country:
+        state_df = df[df["Country"].isin(selected_country)]
+        states = sorted(state_df["State"].dropna().unique())
+    else:
+        states = sorted(df["State"].dropna().unique())
+    
+    # Filter out states that are no longer valid
+    valid_states = [s for s in st.session_state["state_filter"] if s in states]
+    selected_state = st.multiselect(
+        "States",
+        options=states,
+        default=valid_states,
+        key="state_filter"
+    )
+    # Don't modify session_state here - widget handles it automatically
+    
+    # City filter - filtered by selected countries and states
+    city_df = df.copy()
+    if selected_country:
+        city_df = city_df[city_df["Country"].isin(selected_country)]
+    if selected_state:
+        city_df = city_df[city_df["State"].isin(selected_state)]
+    
+    cities = sorted(city_df["City"].dropna().unique())
+    
+    # Filter out cities that are no longer valid
+    valid_cities = [c for c in st.session_state["city_filter"] if c in cities]
+    selected_city = st.multiselect(
+        "Cities",
+        options=cities,
+        default=valid_cities,
+        key="city_filter"
+    )
+    # Don't modify session_state here - widget handles it automatically
+    
+    # Neighborhood filter - filtered by selected countries, states, and cities
+    neigh_df = city_df.copy()
+    if selected_city:
+        neigh_df = neigh_df[neigh_df["City"].isin(selected_city)]
+    
+    neighborhoods = sorted(neigh_df["Neighborhood"].dropna().unique())
+    
+    # Filter out neighborhoods that are no longer valid
+    valid_neighborhoods = [n for n in st.session_state["neighborhood_filter"] if n in neighborhoods]
+    selected_neighborhood = st.multiselect(
+        "Neighborhoods",
+        options=neighborhoods,
+        default=valid_neighborhoods,
+        key="neighborhood_filter"
+    )
+    # Don't modify session_state here - widget handles it automatically
 
 # PROPERTY TYPE / ROOM TYPE FILTERS
 
@@ -332,15 +333,15 @@ with st.sidebar.expander("Pets", expanded=False):
 
 filtered = df.copy()
 
-# location
-if selected_country != "Any":
-    filtered = filtered[filtered["Country"] == selected_country]
-if selected_state != "Any":
-    filtered = filtered[filtered["State"] == selected_state]
-if selected_city != "Any":
-    filtered = filtered[filtered["City"] == selected_city]
-if selected_neighborhood != "Any":
-    filtered = filtered[filtered["Neighborhood"] == selected_neighborhood]
+# location - now using lists (multi-select)
+if st.session_state.get("country_filter"):
+    filtered = filtered[filtered["Country"].isin(st.session_state["country_filter"])]
+if st.session_state.get("state_filter"):
+    filtered = filtered[filtered["State"].isin(st.session_state["state_filter"])]
+if st.session_state.get("city_filter"):
+    filtered = filtered[filtered["City"].isin(st.session_state["city_filter"])]
+if st.session_state.get("neighborhood_filter"):
+    filtered = filtered[filtered["Neighborhood"].isin(st.session_state["neighborhood_filter"])]
 
 # property / room type
 filtered = filtered[filtered["Property Type Normalized"].isin(selected_prop_types)]
@@ -538,8 +539,8 @@ if apply_query and user_query:
     if extracted.get("state") is not None:
         # Check if the state exists in the available states
         state_df_check = df.copy()
-        if selected_country != "Any":
-            state_df_check = state_df_check[state_df_check["Country"] == selected_country]
+        if st.session_state.get("country_filter"):
+            state_df_check = state_df_check[state_df_check["Country"].isin(st.session_state["country_filter"])]
         available_states = sorted(state_df_check["State"].dropna().unique())
         if extracted["state"] in available_states:
             st.session_state["_pending_state_update"] = extracted["state"]
@@ -548,10 +549,10 @@ if apply_query and user_query:
     if extracted.get("city") is not None:
         # Check if the city exists in the available cities
         city_df_check = df.copy()
-        if selected_country != "Any":
-            city_df_check = city_df_check[city_df_check["Country"] == selected_country]
-        if selected_state != "Any":
-            city_df_check = city_df_check[city_df_check["State"] == selected_state]
+        if st.session_state.get("country_filter"):
+            city_df_check = city_df_check[city_df_check["Country"].isin(st.session_state["country_filter"])]
+        if st.session_state.get("state_filter"):
+            city_df_check = city_df_check[city_df_check["State"].isin(st.session_state["state_filter"])]
         available_cities = sorted(city_df_check["City"].dropna().unique())
         if extracted["city"] in available_cities:
             st.session_state["_pending_city_update"] = extracted["city"]
@@ -560,12 +561,12 @@ if apply_query and user_query:
     if extracted.get("neighborhood") is not None:
         # Check if the neighborhood exists in the available neighborhoods
         neigh_df_check = df.copy()
-        if selected_country != "Any":
-            neigh_df_check = neigh_df_check[neigh_df_check["Country"] == selected_country]
-        if selected_state != "Any":
-            neigh_df_check = neigh_df_check[neigh_df_check["State"] == selected_state]
-        if selected_city != "Any":
-            neigh_df_check = neigh_df_check[neigh_df_check["City"] == selected_city]
+        if st.session_state.get("country_filter"):
+            neigh_df_check = neigh_df_check[neigh_df_check["Country"].isin(st.session_state["country_filter"])]
+        if st.session_state.get("state_filter"):
+            neigh_df_check = neigh_df_check[neigh_df_check["State"].isin(st.session_state["state_filter"])]
+        if st.session_state.get("city_filter"):
+            neigh_df_check = neigh_df_check[neigh_df_check["City"].isin(st.session_state["city_filter"])]
         available_neighborhoods = sorted(neigh_df_check["Neighborhood"].dropna().unique())
         if extracted["neighborhood"] in available_neighborhoods:
             st.session_state["_pending_neighborhood_update"] = extracted["neighborhood"]
