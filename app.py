@@ -510,15 +510,18 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
     
     # Get API key from Streamlit secrets or environment variable
     api_key = None
-    try:
-        # Try dictionary-style access first (works in Streamlit Cloud)
-        api_key = st.secrets["ANTHROPIC_API_KEY"]
-    except (KeyError, AttributeError, TypeError):
-        # If that fails, try .get() method
+    
+    # Try to access secrets (may not be available in all environments)
+    if hasattr(st, 'secrets'):
         try:
-            api_key = st.secrets.get("ANTHROPIC_API_KEY")
-        except (AttributeError, TypeError):
-            pass
+            # Try dictionary-style access first (works in Streamlit Cloud)
+            api_key = st.secrets["ANTHROPIC_API_KEY"]
+        except (KeyError, AttributeError, TypeError) as e:
+            # If that fails, try .get() method
+            try:
+                api_key = st.secrets.get("ANTHROPIC_API_KEY")
+            except (AttributeError, TypeError):
+                pass
     
     # Fall back to environment variable
     if not api_key:
@@ -526,9 +529,15 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
     
     if not api_key:
         st.error("❌ No API key found. Please set ANTHROPIC_API_KEY in Streamlit Cloud secrets or as an environment variable.")
+        st.info("💡 In Streamlit Cloud: Go to Settings → Secrets and add: `ANTHROPIC_API_KEY = 'your-key-here'`")
         return None
     
-    st.write("✅ Making API call...")
+    # Debug: Check if API key was found (without exposing it)
+    if api_key:
+        st.write("✅ API key found, making API call...")
+    else:
+        st.error("❌ API key not found")
+        return None
     
     try:
         client = Anthropic(api_key=api_key)
