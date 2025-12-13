@@ -56,44 +56,88 @@ if "neighborhood_filter" not in st.session_state:
 # For location filters, replace (not append) when coming from a new query
 if "_pending_country_update" in st.session_state:
     pending_country = st.session_state["_pending_country_update"]
+    # Normalize to list: convert single value to list, keep list as-is
+    if isinstance(pending_country, list):
+        country_list = pending_country
+    elif pending_country is not None:
+        country_list = [pending_country]
+    else:
+        country_list = []
+    
     # Replace the filter if it's from a new query (indicated by _replace_filters flag)
     if st.session_state.get("_replace_location_filters", False):
-        st.session_state["country_filter"] = [pending_country] if pending_country else []
-    elif pending_country is not None and pending_country not in st.session_state["country_filter"]:
-        st.session_state["country_filter"].append(pending_country)
+        st.session_state["country_filter"] = country_list
+    elif country_list:
+        # Append new countries that aren't already in the filter
+        for country in country_list:
+            if country not in st.session_state["country_filter"]:
+                st.session_state["country_filter"].append(country)
     elif pending_country is None and st.session_state.get("_replace_location_filters", False):
         st.session_state["country_filter"] = []
     del st.session_state["_pending_country_update"]
 
 if "_pending_state_update" in st.session_state:
     pending_state = st.session_state["_pending_state_update"]
+    # Normalize to list: convert single value to list, keep list as-is
+    if isinstance(pending_state, list):
+        state_list = pending_state
+    elif pending_state is not None:
+        state_list = [pending_state]
+    else:
+        state_list = []
+    
     # Replace the filter if it's from a new query
     if st.session_state.get("_replace_location_filters", False):
-        st.session_state["state_filter"] = [pending_state] if pending_state else []
-    elif pending_state is not None and pending_state not in st.session_state["state_filter"]:
-        st.session_state["state_filter"].append(pending_state)
+        st.session_state["state_filter"] = state_list
+    elif state_list:
+        # Append new states that aren't already in the filter
+        for state in state_list:
+            if state not in st.session_state["state_filter"]:
+                st.session_state["state_filter"].append(state)
     elif pending_state is None and st.session_state.get("_replace_location_filters", False):
         st.session_state["state_filter"] = []
     del st.session_state["_pending_state_update"]
 
 if "_pending_city_update" in st.session_state:
     pending_city = st.session_state["_pending_city_update"]
+    # Normalize to list: convert single value to list, keep list as-is
+    if isinstance(pending_city, list):
+        city_list = pending_city
+    elif pending_city is not None:
+        city_list = [pending_city]
+    else:
+        city_list = []
+    
     # Replace the filter if it's from a new query
     if st.session_state.get("_replace_location_filters", False):
-        st.session_state["city_filter"] = [pending_city] if pending_city else []
-    elif pending_city is not None and pending_city not in st.session_state["city_filter"]:
-        st.session_state["city_filter"].append(pending_city)
+        st.session_state["city_filter"] = city_list
+    elif city_list:
+        # Append new cities that aren't already in the filter
+        for city in city_list:
+            if city not in st.session_state["city_filter"]:
+                st.session_state["city_filter"].append(city)
     elif pending_city is None and st.session_state.get("_replace_location_filters", False):
         st.session_state["city_filter"] = []
     del st.session_state["_pending_city_update"]
 
 if "_pending_neighborhood_update" in st.session_state:
     pending_neighborhood = st.session_state["_pending_neighborhood_update"]
+    # Normalize to list: convert single value to list, keep list as-is
+    if isinstance(pending_neighborhood, list):
+        neighborhood_list = pending_neighborhood
+    elif pending_neighborhood is not None:
+        neighborhood_list = [pending_neighborhood]
+    else:
+        neighborhood_list = []
+    
     # Replace the filter if it's from a new query
     if st.session_state.get("_replace_location_filters", False):
-        st.session_state["neighborhood_filter"] = [pending_neighborhood] if pending_neighborhood else []
-    elif pending_neighborhood is not None and pending_neighborhood not in st.session_state["neighborhood_filter"]:
-        st.session_state["neighborhood_filter"].append(pending_neighborhood)
+        st.session_state["neighborhood_filter"] = neighborhood_list
+    elif neighborhood_list:
+        # Append new neighborhoods that aren't already in the filter
+        for neighborhood in neighborhood_list:
+            if neighborhood not in st.session_state["neighborhood_filter"]:
+                st.session_state["neighborhood_filter"].append(neighborhood)
     elif pending_neighborhood is None and st.session_state.get("_replace_location_filters", False):
         st.session_state["neighborhood_filter"] = []
     del st.session_state["_pending_neighborhood_update"]
@@ -433,10 +477,10 @@ NUMERIC CONSTRAINTS:
 
 OUTPUT FORMAT (JSON):
 {{
-    "country": "exact country name or null",
-    "state": "exact state name or null",
-    "city": "exact city name or null",
-    "neighborhood": "exact neighborhood name or null",
+    "country": "exact country name or null (or list for multiple)",
+    "state": "exact state name or null (or list for multiple)",
+    "city": "exact city name or null (or list for multiple)",
+    "neighborhood": "exact neighborhood name or null (or list for multiple)",
     "property_types": ["list of allowed property types or empty list"],
     "room_types": ["list of allowed room types or empty list"],
     "price_max": number or null,
@@ -445,6 +489,11 @@ OUTPUT FORMAT (JSON):
     "rating_min": float or null,
     "amenities": ["list of amenity labels or empty list"]
 }}
+
+NOTE: For locations, you can return either:
+- A single string: "Los Angeles"
+- A list of strings: ["Los Angeles", "San Francisco"]
+- null if not mentioned
 
 USER QUERY: "{query}"
 
@@ -632,40 +681,76 @@ if apply_query and user_query:
     # Simple debug output
     st.write("**Extracted:**", extracted)
     
-    # country -> country_filter
-    if extracted.get("country") is not None:
-        # Check if the country exists in the available countries
+    # country -> country_filter (supports single value or list)
+    country_value = extracted.get("country")
+    if country_value is not None:
+        # Normalize to list: convert single string to list, keep list as-is
+        if isinstance(country_value, str):
+            country_list = [country_value]
+        elif isinstance(country_value, list):
+            country_list = country_value
+        else:
+            country_list = []
+        
+        # Check if countries exist in available countries
         available_countries = sorted(df["Country"].dropna().unique())
-        if extracted["country"] in available_countries:
-            st.session_state["_pending_country_update"] = extracted["country"]
+        valid_countries = [c for c in country_list if c in available_countries]
+        if valid_countries:
+            st.session_state["_pending_country_update"] = valid_countries if len(valid_countries) > 1 else valid_countries[0]
+        else:
+            st.session_state["_pending_country_update"] = None
     else:
         # Clear country filter if new query doesn't specify a country
         st.session_state["_pending_country_update"] = None
 
-    # state -> state_filter
-    if extracted.get("state") is not None:
-        # Check if the state exists in the available states
+    # state -> state_filter (supports single value or list)
+    state_value = extracted.get("state")
+    if state_value is not None:
+        # Normalize to list: convert single string to list, keep list as-is
+        if isinstance(state_value, str):
+            state_list = [state_value]
+        elif isinstance(state_value, list):
+            state_list = state_value
+        else:
+            state_list = []
+        
+        # Check if states exist in available states
         state_df_check = df.copy()
         if st.session_state.get("country_filter"):
             state_df_check = state_df_check[state_df_check["Country"].isin(st.session_state["country_filter"])]
         available_states = sorted(state_df_check["State"].dropna().unique())
-        if extracted["state"] in available_states:
-            st.session_state["_pending_state_update"] = extracted["state"]
+        valid_states = [s for s in state_list if s in available_states]
+        if valid_states:
+            st.session_state["_pending_state_update"] = valid_states if len(valid_states) > 1 else valid_states[0]
+        else:
+            st.session_state["_pending_state_update"] = None
     else:
         # Clear state filter if new query doesn't specify a state
         st.session_state["_pending_state_update"] = None
 
-    # city -> city_filter
-    if extracted.get("city") is not None:
-        # Check if the city exists in the available cities
+    # city -> city_filter (supports single value or list)
+    city_value = extracted.get("city")
+    if city_value is not None:
+        # Normalize to list: convert single string to list, keep list as-is
+        if isinstance(city_value, str):
+            city_list = [city_value]
+        elif isinstance(city_value, list):
+            city_list = city_value
+        else:
+            city_list = []
+        
+        # Check if cities exist in available cities
         city_df_check = df.copy()
         if st.session_state.get("country_filter"):
             city_df_check = city_df_check[city_df_check["Country"].isin(st.session_state["country_filter"])]
         if st.session_state.get("state_filter"):
             city_df_check = city_df_check[city_df_check["State"].isin(st.session_state["state_filter"])]
         available_cities = sorted(city_df_check["City"].dropna().unique())
-        if extracted["city"] in available_cities:
-            st.session_state["_pending_city_update"] = extracted["city"]
+        valid_cities = [c for c in city_list if c in available_cities]
+        if valid_cities:
+            st.session_state["_pending_city_update"] = valid_cities if len(valid_cities) > 1 else valid_cities[0]
+        else:
+            st.session_state["_pending_city_update"] = None
     else:
         # Clear city filter if new query doesn't specify a city
         st.session_state["_pending_city_update"] = None
