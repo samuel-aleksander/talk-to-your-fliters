@@ -511,15 +511,21 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
     # Get API key from Streamlit secrets or environment variable
     api_key = None
     try:
-        api_key = st.secrets.get("ANTHROPIC_API_KEY")
-    except:
-        pass
+        # Try dictionary-style access first (works in Streamlit Cloud)
+        api_key = st.secrets["ANTHROPIC_API_KEY"]
+    except (KeyError, AttributeError, TypeError):
+        # If that fails, try .get() method
+        try:
+            api_key = st.secrets.get("ANTHROPIC_API_KEY")
+        except (AttributeError, TypeError):
+            pass
     
+    # Fall back to environment variable
     if not api_key:
         api_key = os.getenv("ANTHROPIC_API_KEY")
     
     if not api_key:
-        st.write("❌ No API key found")
+        st.error("❌ No API key found. Please set ANTHROPIC_API_KEY in Streamlit Cloud secrets or as an environment variable.")
         return None
     
     st.write("✅ Making API call...")
@@ -552,8 +558,17 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
         # Return raw facets without validation for now
         return raw_facets
         
+    except json.JSONDecodeError as e:
+        st.error(f"❌ Failed to parse JSON response: {str(e)}")
+        if 'content' in locals():
+            st.write("**Raw response:**", content)
+        return None
     except Exception as e:
-        st.write(f"❌ Error: {str(e)}")
+        error_type = type(e).__name__
+        st.error(f"❌ API Error ({error_type}): {str(e)}")
+        # Don't expose the full API key in error messages
+        if "api_key" in str(e).lower() or "authentication" in str(e).lower():
+            st.info("💡 Tip: Check that your ANTHROPIC_API_KEY is correctly set in Streamlit Cloud secrets.")
         return None
 
 
