@@ -358,7 +358,7 @@ rating_min = st.sidebar.slider(
     min_value=0.0,
     max_value=5.0,
     value=rating_value,
-    step=0.5,
+    step=0.1,
     key="rating_filter"
 )
 
