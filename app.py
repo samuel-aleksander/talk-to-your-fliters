@@ -151,7 +151,8 @@ countries = sorted(df["Country"].dropna().unique())
 selected_country = st.sidebar.multiselect(
     "Countries",
     options=countries,
-    key="country_filter"
+    key="country_filter",
+    placeholder="Any"
 )
 # Don't modify session_state here - widget handles it automatically
 
@@ -168,7 +169,8 @@ selected_state = st.sidebar.multiselect(
     "States",
     options=states,
     default=valid_states,
-    key="state_filter"
+    key="state_filter",
+    placeholder="Any"
 )
 # Don't modify session_state here - widget handles it automatically
 
@@ -187,7 +189,8 @@ selected_city = st.sidebar.multiselect(
     "Cities",
     options=cities,
     default=valid_cities,
-    key="city_filter"
+    key="city_filter",
+    placeholder="Any"
 )
 # Don't modify session_state here - widget handles it automatically
 
@@ -204,7 +207,8 @@ selected_neighborhood = st.sidebar.multiselect(
     "Neighborhoods",
     options=neighborhoods,
     default=valid_neighborhoods,
-    key="neighborhood_filter"
+    key="neighborhood_filter",
+    placeholder="Any"
 )
 # Don't modify session_state here - widget handles it automatically
 
