@@ -53,29 +53,54 @@ if "neighborhood_filter" not in st.session_state:
     st.session_state["neighborhood_filter"] = []
 
 # Handle pending updates BEFORE creating widgets
+# For location filters, replace (not append) when coming from a new query
 if "_pending_country_update" in st.session_state:
     pending_country = st.session_state["_pending_country_update"]
-    if pending_country not in st.session_state["country_filter"]:
+    # Replace the filter if it's from a new query (indicated by _replace_filters flag)
+    if st.session_state.get("_replace_location_filters", False):
+        st.session_state["country_filter"] = [pending_country] if pending_country else []
+    elif pending_country is not None and pending_country not in st.session_state["country_filter"]:
         st.session_state["country_filter"].append(pending_country)
+    elif pending_country is None and st.session_state.get("_replace_location_filters", False):
+        st.session_state["country_filter"] = []
     del st.session_state["_pending_country_update"]
 
 if "_pending_state_update" in st.session_state:
     pending_state = st.session_state["_pending_state_update"]
-    if pending_state not in st.session_state["state_filter"]:
+    # Replace the filter if it's from a new query
+    if st.session_state.get("_replace_location_filters", False):
+        st.session_state["state_filter"] = [pending_state] if pending_state else []
+    elif pending_state is not None and pending_state not in st.session_state["state_filter"]:
         st.session_state["state_filter"].append(pending_state)
+    elif pending_state is None and st.session_state.get("_replace_location_filters", False):
+        st.session_state["state_filter"] = []
     del st.session_state["_pending_state_update"]
 
 if "_pending_city_update" in st.session_state:
     pending_city = st.session_state["_pending_city_update"]
-    if pending_city not in st.session_state["city_filter"]:
+    # Replace the filter if it's from a new query
+    if st.session_state.get("_replace_location_filters", False):
+        st.session_state["city_filter"] = [pending_city] if pending_city else []
+    elif pending_city is not None and pending_city not in st.session_state["city_filter"]:
         st.session_state["city_filter"].append(pending_city)
+    elif pending_city is None and st.session_state.get("_replace_location_filters", False):
+        st.session_state["city_filter"] = []
     del st.session_state["_pending_city_update"]
 
 if "_pending_neighborhood_update" in st.session_state:
     pending_neighborhood = st.session_state["_pending_neighborhood_update"]
-    if pending_neighborhood not in st.session_state["neighborhood_filter"]:
+    # Replace the filter if it's from a new query
+    if st.session_state.get("_replace_location_filters", False):
+        st.session_state["neighborhood_filter"] = [pending_neighborhood] if pending_neighborhood else []
+    elif pending_neighborhood is not None and pending_neighborhood not in st.session_state["neighborhood_filter"]:
         st.session_state["neighborhood_filter"].append(pending_neighborhood)
+    elif pending_neighborhood is None and st.session_state.get("_replace_location_filters", False):
+        st.session_state["neighborhood_filter"] = []
     del st.session_state["_pending_neighborhood_update"]
+
+# Clear the replace flag after processing all location filters
+if "_replace_location_filters" in st.session_state:
+    del st.session_state["_replace_location_filters"]
 
 # Country filter - multi-select
 countries = sorted(df["Country"].dropna().unique())
@@ -576,6 +601,9 @@ def extract_facets_from_query(query: str, df: pd.DataFrame) -> Dict[str, Any]:
     }
 
 if apply_query and user_query:
+    # Set flag to replace location filters (not append) when applying a new query
+    st.session_state["_replace_location_filters"] = True
+    
     extracted = extract_facets_from_query(user_query, df)
     
     # Simple debug output
@@ -587,6 +615,9 @@ if apply_query and user_query:
         available_countries = sorted(df["Country"].dropna().unique())
         if extracted["country"] in available_countries:
             st.session_state["_pending_country_update"] = extracted["country"]
+    else:
+        # Clear country filter if new query doesn't specify a country
+        st.session_state["_pending_country_update"] = None
 
     # state -> state_filter
     if extracted.get("state") is not None:
@@ -597,6 +628,9 @@ if apply_query and user_query:
         available_states = sorted(state_df_check["State"].dropna().unique())
         if extracted["state"] in available_states:
             st.session_state["_pending_state_update"] = extracted["state"]
+    else:
+        # Clear state filter if new query doesn't specify a state
+        st.session_state["_pending_state_update"] = None
 
     # city -> city_filter
     if extracted.get("city") is not None:
@@ -609,6 +643,9 @@ if apply_query and user_query:
         available_cities = sorted(city_df_check["City"].dropna().unique())
         if extracted["city"] in available_cities:
             st.session_state["_pending_city_update"] = extracted["city"]
+    else:
+        # Clear city filter if new query doesn't specify a city
+        st.session_state["_pending_city_update"] = None
 
     # neighborhood -> neighborhood_filter
     if extracted.get("neighborhood") is not None:
@@ -623,6 +660,9 @@ if apply_query and user_query:
         available_neighborhoods = sorted(neigh_df_check["Neighborhood"].dropna().unique())
         if extracted["neighborhood"] in available_neighborhoods:
             st.session_state["_pending_neighborhood_update"] = extracted["neighborhood"]
+    else:
+        # Clear neighborhood filter if new query doesn't specify a neighborhood
+        st.session_state["_pending_neighborhood_update"] = None
 
     # property_types -> prop_type_filter
     property_types_list = extracted.get("property_types", [])
