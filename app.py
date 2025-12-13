@@ -148,69 +148,89 @@ if "_replace_location_filters" in st.session_state:
 
 # Country filter - multi-select
 countries = sorted(df["Country"].dropna().unique())
+# Filter out countries that are no longer valid - update session_state directly
+st.session_state["country_filter"] = [c for c in st.session_state["country_filter"] if c in countries]
+# Disable country filter if state, city, or neighborhood is selected
+country_disabled = (len(st.session_state.get("state_filter", [])) > 0 or 
+                    len(st.session_state.get("city_filter", [])) > 0 or 
+                    len(st.session_state.get("neighborhood_filter", [])) > 0)
+country_help = "Disabled because a state, city, or neighborhood is selected."
 selected_country = st.sidebar.multiselect(
     "Countries",
     options=countries,
     key="country_filter",
-    placeholder="Any"
+    placeholder="Auto-filtered" if country_disabled else "Any",
+    disabled=country_disabled,
+    help=country_help if country_disabled else None
 )
 # Don't modify session_state here - widget handles it automatically
 
 # State filter - filtered by selected countries
-if selected_country:
-    state_df = df[df["Country"].isin(selected_country)]
+if st.session_state.get("country_filter"):
+    state_df = df[df["Country"].isin(st.session_state["country_filter"])]
     states = sorted(state_df["State"].dropna().unique())
 else:
     states = sorted(df["State"].dropna().unique())
 
-# Filter out states that are no longer valid
-valid_states = [s for s in st.session_state["state_filter"] if s in states]
+# Filter out states that are no longer valid - update session_state directly
+st.session_state["state_filter"] = [s for s in st.session_state["state_filter"] if s in states]
+# Disable state filter if city or neighborhood is selected
+state_disabled = (len(st.session_state.get("city_filter", [])) > 0 or 
+                  len(st.session_state.get("neighborhood_filter", [])) > 0)
+state_help = "Disabled because a city or neighborhood is selected."
 selected_state = st.sidebar.multiselect(
     "States",
     options=states,
-    default=valid_states,
     key="state_filter",
-    placeholder="Any"
+    placeholder="Auto-filtered" if state_disabled else "Any",
+    disabled=state_disabled,
+    help=state_help if state_disabled else None
 )
 # Don't modify session_state here - widget handles it automatically
+
 
 # City filter - filtered by selected countries and states
 city_df = df.copy()
-if selected_country:
-    city_df = city_df[city_df["Country"].isin(selected_country)]
-if selected_state:
-    city_df = city_df[city_df["State"].isin(selected_state)]
+if st.session_state.get("country_filter"):
+    city_df = city_df[city_df["Country"].isin(st.session_state["country_filter"])]
+if st.session_state.get("state_filter"):
+    city_df = city_df[city_df["State"].isin(st.session_state["state_filter"])]
 
 cities = sorted(city_df["City"].dropna().unique())
 
-# Filter out cities that are no longer valid
-valid_cities = [c for c in st.session_state["city_filter"] if c in cities]
+# Filter out cities that are no longer valid - update session_state directly
+st.session_state["city_filter"] = [c for c in st.session_state["city_filter"] if c in cities]
+# Disable city filter if neighborhood is selected
+city_disabled = len(st.session_state.get("neighborhood_filter", [])) > 0
+city_help = "Disabled because a neighborhood is selected."
 selected_city = st.sidebar.multiselect(
     "Cities",
     options=cities,
-    default=valid_cities,
     key="city_filter",
-    placeholder="Any"
+    placeholder="Auto-filtered" if city_disabled else "Any",
+    disabled=city_disabled,
+    help=city_help if city_disabled else None
 )
 # Don't modify session_state here - widget handles it automatically
 
+
 # Neighborhood filter - filtered by selected countries, states, and cities
 neigh_df = city_df.copy()
-if selected_city:
-    neigh_df = neigh_df[neigh_df["City"].isin(selected_city)]
+if st.session_state.get("city_filter"):
+    neigh_df = neigh_df[neigh_df["City"].isin(st.session_state["city_filter"])]
 
 neighborhoods = sorted(neigh_df["Neighborhood"].dropna().unique())
 
-# Filter out neighborhoods that are no longer valid
-valid_neighborhoods = [n for n in st.session_state["neighborhood_filter"] if n in neighborhoods]
+# Filter out neighborhoods that are no longer valid - update session_state directly
+st.session_state["neighborhood_filter"] = [n for n in st.session_state["neighborhood_filter"] if n in neighborhoods]
 selected_neighborhood = st.sidebar.multiselect(
     "Neighborhoods",
     options=neighborhoods,
-    default=valid_neighborhoods,
     key="neighborhood_filter",
     placeholder="Any"
 )
 # Don't modify session_state here - widget handles it automatically
+
 
 # PROPERTY TYPE / ROOM TYPE FILTERS
 
