@@ -19,7 +19,7 @@ try:
 except ImportError:
     LLM_AVAILABLE = False
 
-st.set_page_config(page_title="Airbnb Faceted Search", layout="wide")
+st.set_page_config(page_title="Talk to Your Filters", layout="wide")
 
 @st.cache_data
 def load_data():
@@ -34,7 +34,9 @@ if st.session_state.get("_clear_query_input", False):
         st.session_state["user_query_input"] = ""
     del st.session_state["_clear_query_input"]
 
-st.title("Airbnb Faceted Search Prototype")
+st.title("Talk to Your Filters")
+
+st.markdown("## Natural-Language Faceted Search for Airbnb")
 
 st.markdown("### Tell us what you are looking for")
 
