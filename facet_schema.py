@@ -32,22 +32,22 @@ FACET_SCHEMA = {
     },
 
     "accommodates_min": {
-        "type": "numeric_min",
+        "type": "quantitative",
         "field": "Accommodates"
     },
 
     "bedrooms_min": {
-        "type": "numeric_min",
+        "type": "quantitative",
         "field": "Bedrooms"
     },
 
     "price_max": {
-        "type": "numeric_max",
+        "type": "quantitative",
         "field": "Price"
     },
 
     "rating_min": {
-        "type": "numeric_min",
+        "type": "quantitative",
         "field": "rating_stars",
         "scale": "0_to_5"
     },
