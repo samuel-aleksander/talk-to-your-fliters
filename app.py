@@ -47,6 +47,10 @@ st.markdown(
 if "user_query_input" not in st.session_state:
     st.session_state["user_query_input"] = ""
 
+# Initialize applied filters text in session state if not exists
+if "_applied_filters_text" not in st.session_state:
+    st.session_state["_applied_filters_text"] = ""
+
 user_query = st.text_input(
     "We will automatically apply filters based on your description",
     placeholder="e.g. cheap 2 bedroom in Los Angeles with pool and wifi",
@@ -195,8 +199,8 @@ def format_applied_filters(extracted: Dict[str, Any]) -> str:
 
 st.sidebar.subheader("Location")
 
-# Create a placeholder for the applied filters display
-# This will be updated after filters are processed
+# Create a placeholder for the applied filters display (early, for clearing purposes)
+# The actual display will happen after Results section
 applied_filters_placeholder = st.empty()
 
 # Clear the placeholder if we're in the process of applying a new query
@@ -621,12 +625,9 @@ clearing_query = st.session_state.get("_clear_query_input", False)
 # Clear the applying flag after pending updates are processed
 if applying_from_query and not has_pending_updates:
     del st.session_state["_applying_filters_from_query"]
-    # Now that filters are processed, update the display with new filters
+    # Store filter text in session state to display after Results
     applied_filters_text = format_actually_applied_filters(df)
-    if applied_filters_text:
-        applied_filters_placeholder.info(f"**Applied Filters:** {applied_filters_text}")
-    else:
-        applied_filters_placeholder.empty()
+    st.session_state["_applied_filters_text"] = applied_filters_text
 
 if not has_pending_updates and not applying_from_query and not clearing_query:
     current_states = {
@@ -686,15 +687,11 @@ if not has_pending_updates and not applying_from_query and not clearing_query:
         # Update previous states for next comparison
         st.session_state["_prev_filter_states"] = current_states.copy()
 
-# Display applied filters based on actual session_state values
-# This is placed here after all filters have been initialized and processed
+# Store applied filters text in session state to display after Results
 # Only update if we're not currently applying a new query (to prevent showing stale data)
 if not st.session_state.get("_applying_filters_from_query", False):
     applied_filters_text = format_actually_applied_filters(df)
-    if applied_filters_text:
-        applied_filters_placeholder.info(f"**Applied Filters:** {applied_filters_text}")
-    else:
-        applied_filters_placeholder.empty()
+    st.session_state["_applied_filters_text"] = applied_filters_text
 
 # APPLY FILTERS
 
@@ -974,6 +971,7 @@ def extract_facets_from_query(query: str, df: pd.DataFrame) -> Dict[str, Any]:
 if apply_query and user_query:
     # Clear the applied filters display immediately to prevent showing stale data during rerun
     applied_filters_placeholder.empty()
+    st.session_state["_applied_filters_text"] = ""
     
     # Set flag to replace location filters (not append) when applying a new query
     st.session_state["_replace_location_filters"] = True
@@ -1129,6 +1127,11 @@ if apply_query and user_query:
 # SHOW RESULTS
 
 st.subheader(f"Results ({len(filtered)} listings)")
+
+# Display applied filters right under Results
+applied_filters_text = st.session_state.get("_applied_filters_text", "")
+if applied_filters_text:
+    st.info(f"**Applied Filters:** {applied_filters_text}")
 
 cols_to_show = [
     "ID", "Listing Url", "Neighborhood", "City", "State",
