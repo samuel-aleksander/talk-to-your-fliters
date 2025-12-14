@@ -55,6 +55,86 @@ user_query = st.text_input(
 
 apply_query = st.button("Apply filters")
 
+# Function to format actually applied filters from session_state
+def format_actually_applied_filters(df: pd.DataFrame) -> str:
+    """Format actually applied filters from session_state into a human-readable string.
+    
+    This function reads from the actual filter state values in session_state,
+    not from the raw LLM output, ensuring the display matches what's actually applied.
+    """
+    filters = []
+    
+    # Location filters
+    country_filter = st.session_state.get("country_filter", [])
+    if country_filter:
+        filters.append(f"Country: {', '.join(country_filter)}")
+    
+    state_filter = st.session_state.get("state_filter", [])
+    if state_filter:
+        filters.append(f"State: {', '.join(state_filter)}")
+    
+    city_filter = st.session_state.get("city_filter", [])
+    if city_filter:
+        filters.append(f"City: {', '.join(city_filter)}")
+    
+    neighborhood_filter = st.session_state.get("neighborhood_filter", [])
+    if neighborhood_filter:
+        filters.append(f"Neighborhood: {', '.join(neighborhood_filter)}")
+    
+    # Property and room types
+    prop_type_filter = st.session_state.get("prop_type_filter", [])
+    if prop_type_filter:
+        filters.append(f"Property Type: {', '.join(prop_type_filter)}")
+    
+    room_type_filter = st.session_state.get("room_type_filter", [])
+    if room_type_filter:
+        filters.append(f"Room Type: {', '.join(room_type_filter)}")
+    
+    # Numeric filters - only show if they differ from defaults
+    min_price, max_price = float(df["Price"].min()), float(df["Price"].max())
+    price_filter = st.session_state.get("price_filter", (int(min_price), int(max_price)))
+    if price_filter and price_filter[1] < max_price:
+        filters.append(f"Max Price: ${price_filter[1]:.0f}")
+    
+    min_guests = int(df["Accommodates"].min())
+    guests_filter = st.session_state.get("guests_filter", min_guests)
+    if guests_filter > min_guests:
+        filters.append(f"Min Guests: {guests_filter}")
+    
+    min_beds = int(df["Bedrooms"].min())
+    bedrooms_filter = st.session_state.get("bedrooms_filter", min_beds)
+    if bedrooms_filter > min_beds:
+        filters.append(f"Min Bedrooms: {bedrooms_filter}")
+    
+    rating_filter = st.session_state.get("rating_filter", 0.0)
+    if rating_filter > 0.0:
+        filters.append(f"Min Rating: {rating_filter:.1f} stars")
+    
+    # Amenities - only show checked ones
+    amenity_labels = []
+    amenity_mapping = {
+        "amenity_wifi_filter": "Wifi",
+        "amenity_TV_filter": "TV",
+        "amenity_kitchen_filter": "Kitchen",
+        "amenity_heating_filter": "Heating",
+        "amenity_air_conditioning_filter": "Air conditioning",
+        "amenity_washer_filter": "Washer",
+        "amenity_dryer_filter": "Dryer",
+        "amenity_free_parking_filter": "Free parking",
+        "amenity_pool_filter": "Pool",
+        "amenity_hot_tub_filter": "Hot tub",
+        "amenity_pet_friendly_filter": "Pet-friendly"
+    }
+    
+    for key, label in amenity_mapping.items():
+        if st.session_state.get(key, False):
+            amenity_labels.append(label)
+    
+    if amenity_labels:
+        filters.append(f"Amenities: {', '.join(amenity_labels)}")
+    
+    return " | ".join(filters) if filters else ""
+
 # Function to format and display applied filters
 def format_applied_filters(extracted: Dict[str, Any]) -> str:
     """Format extracted filters into a human-readable string."""
@@ -111,15 +191,18 @@ def format_applied_filters(extracted: Dict[str, Any]) -> str:
     
     return " | ".join(filters) if filters else ""
 
-# Display applied filters if they exist from a previous query
-if "last_extracted_filters" in st.session_state and st.session_state["last_extracted_filters"]:
-    applied_filters_text = format_applied_filters(st.session_state["last_extracted_filters"])
-    if applied_filters_text:
-        st.info(f"**Applied Filters:** {applied_filters_text}")
-
 # LOCATION FILTERS - Hierarchical multi-select
 
 st.sidebar.subheader("Location")
+
+# Create a placeholder for the applied filters display
+# This will be updated after filters are processed
+applied_filters_placeholder = st.empty()
+
+# Clear the placeholder if we're in the process of applying a new query
+# This prevents showing stale filters during the rerun
+if st.session_state.get("_applying_filters_from_query", False):
+    applied_filters_placeholder.empty()
 
 # Initialize as lists for multi-select
 if "country_filter" not in st.session_state:
@@ -538,6 +621,12 @@ clearing_query = st.session_state.get("_clear_query_input", False)
 # Clear the applying flag after pending updates are processed
 if applying_from_query and not has_pending_updates:
     del st.session_state["_applying_filters_from_query"]
+    # Now that filters are processed, update the display with new filters
+    applied_filters_text = format_actually_applied_filters(df)
+    if applied_filters_text:
+        applied_filters_placeholder.info(f"**Applied Filters:** {applied_filters_text}")
+    else:
+        applied_filters_placeholder.empty()
 
 if not has_pending_updates and not applying_from_query and not clearing_query:
     current_states = {
@@ -596,6 +685,16 @@ if not has_pending_updates and not applying_from_query and not clearing_query:
     else:
         # Update previous states for next comparison
         st.session_state["_prev_filter_states"] = current_states.copy()
+
+# Display applied filters based on actual session_state values
+# This is placed here after all filters have been initialized and processed
+# Only update if we're not currently applying a new query (to prevent showing stale data)
+if not st.session_state.get("_applying_filters_from_query", False):
+    applied_filters_text = format_actually_applied_filters(df)
+    if applied_filters_text:
+        applied_filters_placeholder.info(f"**Applied Filters:** {applied_filters_text}")
+    else:
+        applied_filters_placeholder.empty()
 
 # APPLY FILTERS
 
@@ -873,6 +972,9 @@ def extract_facets_from_query(query: str, df: pd.DataFrame) -> Dict[str, Any]:
     }
 
 if apply_query and user_query:
+    # Clear the applied filters display immediately to prevent showing stale data during rerun
+    applied_filters_placeholder.empty()
+    
     # Set flag to replace location filters (not append) when applying a new query
     st.session_state["_replace_location_filters"] = True
     # Set flag to indicate filters are being applied from a query (prevents clearing query context)
