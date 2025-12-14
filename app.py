@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 from facet_schema import FACET_SCHEMA
 
@@ -60,6 +60,17 @@ user_query = st.text_input(
 )
 
 apply_query = st.button("Interpret query")
+
+# Small utility: normalize a value into a list[str]
+def _normalize_string_list(value: Any) -> List[str]:
+    """Convert a string or list of strings into a list[str]. Non-strings -> []"""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        return [v for v in value if isinstance(v, str)]
+    return []
 
 # Function to format actually applied filters from session_state
 def format_actually_applied_filters(df: pd.DataFrame) -> str:
@@ -224,13 +235,7 @@ if "neighborhood_filter" not in st.session_state:
 # For location filters, replace (not append) when coming from a new query
 if "_pending_country_update" in st.session_state:
     pending_country = st.session_state["_pending_country_update"]
-    # Normalize to list: convert single value to list, keep list as-is
-    if isinstance(pending_country, list):
-        country_list = pending_country
-    elif pending_country is not None:
-        country_list = [pending_country]
-    else:
-        country_list = []
+    country_list = _normalize_string_list(pending_country)
     
     # Replace the filter if it's from a new query (indicated by _replace_filters flag)
     if st.session_state.get("_replace_location_filters", False):
@@ -246,13 +251,7 @@ if "_pending_country_update" in st.session_state:
 
 if "_pending_state_update" in st.session_state:
     pending_state = st.session_state["_pending_state_update"]
-    # Normalize to list: convert single value to list, keep list as-is
-    if isinstance(pending_state, list):
-        state_list = pending_state
-    elif pending_state is not None:
-        state_list = [pending_state]
-    else:
-        state_list = []
+    state_list = _normalize_string_list(pending_state)
     
     # Replace the filter if it's from a new query
     if st.session_state.get("_replace_location_filters", False):
@@ -268,13 +267,7 @@ if "_pending_state_update" in st.session_state:
 
 if "_pending_city_update" in st.session_state:
     pending_city = st.session_state["_pending_city_update"]
-    # Normalize to list: convert single value to list, keep list as-is
-    if isinstance(pending_city, list):
-        city_list = pending_city
-    elif pending_city is not None:
-        city_list = [pending_city]
-    else:
-        city_list = []
+    city_list = _normalize_string_list(pending_city)
     
     # Replace the filter if it's from a new query
     if st.session_state.get("_replace_location_filters", False):
@@ -290,13 +283,7 @@ if "_pending_city_update" in st.session_state:
 
 if "_pending_neighborhood_update" in st.session_state:
     pending_neighborhood = st.session_state["_pending_neighborhood_update"]
-    # Normalize to list: convert single value to list, keep list as-is
-    if isinstance(pending_neighborhood, list):
-        neighborhood_list = pending_neighborhood
-    elif pending_neighborhood is not None:
-        neighborhood_list = [pending_neighborhood]
-    else:
-        neighborhood_list = []
+    neighborhood_list = _normalize_string_list(pending_neighborhood)
     
     # Replace the filter if it's from a new query
     if st.session_state.get("_replace_location_filters", False):
@@ -852,7 +839,7 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
     """Extract facets using Claude API. Returns None if LLM is unavailable or fails."""
     
     if not LLM_AVAILABLE:
-        st.write("❌ LLM not available")
+        st.warning("LLM extraction is unavailable (missing the 'anthropic' package).")
         return None
     
     # Get API key from Streamlit secrets or environment variable
@@ -861,10 +848,8 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
     # Try to access secrets (may not be available in all environments)
     if hasattr(st, 'secrets'):
         try:
-            # Try dictionary-style access first (works in Streamlit Cloud)
             api_key = st.secrets["ANTHROPIC_API_KEY"]
-        except (KeyError, AttributeError, TypeError) as e:
-            # If that fails, try .get() method
+        except (KeyError, AttributeError, TypeError):
             try:
                 api_key = st.secrets.get("ANTHROPIC_API_KEY")
             except (AttributeError, TypeError):
@@ -877,13 +862,6 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
     if not api_key:
         st.error("❌ No API key found. Please set ANTHROPIC_API_KEY in Streamlit Cloud secrets or as an environment variable.")
         st.info("💡 In Streamlit Cloud: Go to Settings → Secrets and add: `ANTHROPIC_API_KEY = 'your-key-here'`")
-        return None
-    
-    # Debug: Check if API key was found (without exposing it)
-    if api_key:
-        st.write("✅ API key found, making API call...")
-    else:
-        st.error("❌ API key not found")
         return None
     
     try:
@@ -904,9 +882,7 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
         
         # Parse JSON response
         content = message.content[0].text
-        st.write("**LLM Response:**", content)
         raw_facets = json.loads(content)
-        st.write("✅ API call successful")
         
         # Log the query and response
         log_llm_query(query, content, raw_facets)
@@ -916,8 +892,6 @@ def _extract_facets_with_llm(query: str, available_locations: Dict[str, list]) -
         
     except json.JSONDecodeError as e:
         st.error(f"❌ Failed to parse JSON response: {str(e)}")
-        if 'content' in locals():
-            st.write("**Raw response:**", content)
         return None
     except Exception as e:
         error_type = type(e).__name__
@@ -985,19 +959,10 @@ if apply_query and user_query:
     # Store extracted filters for display
     st.session_state["last_extracted_filters"] = extracted
     
-    # Simple debug output
-    st.write("**Extracted:**", extracted)
-    
     # country -> country_filter (supports single value or list)
     country_value = extracted.get("country")
     if country_value is not None:
-        # Normalize to list: convert single string to list, keep list as-is
-        if isinstance(country_value, str):
-            country_list = [country_value]
-        elif isinstance(country_value, list):
-            country_list = country_value
-        else:
-            country_list = []
+        country_list = _normalize_string_list(country_value)
         
         # Check if countries exist in available countries
         available_countries = sorted(df["Country"].dropna().unique())
@@ -1013,13 +978,7 @@ if apply_query and user_query:
     # state -> state_filter (supports single value or list)
     state_value = extracted.get("state")
     if state_value is not None:
-        # Normalize to list: convert single string to list, keep list as-is
-        if isinstance(state_value, str):
-            state_list = [state_value]
-        elif isinstance(state_value, list):
-            state_list = state_value
-        else:
-            state_list = []
+        state_list = _normalize_string_list(state_value)
         
         # Check if states exist in available states
         state_df_check = df.copy()
@@ -1038,13 +997,7 @@ if apply_query and user_query:
     # city -> city_filter (supports single value or list)
     city_value = extracted.get("city")
     if city_value is not None:
-        # Normalize to list: convert single string to list, keep list as-is
-        if isinstance(city_value, str):
-            city_list = [city_value]
-        elif isinstance(city_value, list):
-            city_list = city_value
-        else:
-            city_list = []
+        city_list = _normalize_string_list(city_value)
         
         # Check if cities exist in available cities
         city_df_check = df.copy()
