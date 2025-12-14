@@ -41,7 +41,11 @@ FACET_SCHEMA = {
         "field": "Bedrooms"
     },
 
-    "price_max": {
+     "price_max": {
+        "type": "quantitative",
+        "field": "Price"
+    },
+    "price_min": {
         "type": "quantitative",
         "field": "Price"
     },
@@ -53,7 +57,7 @@ FACET_SCHEMA = {
     },
 
     "amenities": {
-        "type": "multi_boolean_hierarchical",
+        "type": "multi_level_categorical",
         "categories": {
             "Basics": {
                 "Wifi": "amenity_wifi",
