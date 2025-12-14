@@ -57,7 +57,7 @@ user_query = st.text_input(
     key="user_query_input"
 )
 
-apply_query = st.button("Apply filters")
+apply_query = st.button("Interpret query")
 
 # Function to format actually applied filters from session_state
 def format_actually_applied_filters(df: pd.DataFrame) -> str:
